@@ -1,4 +1,3 @@
-const imageInput = document.getElementById('imageInput');
 const uploadBox = document.getElementById('uploadBox');
 const dualViewContainer = document.getElementById('dualViewContainer');
 const imagePreview = document.getElementById('imagePreview');
@@ -10,26 +9,12 @@ const detectedName = document.getElementById('detectedName');
 const detectedCapacity = document.getElementById('detectedCapacity');
 const detectedPrice = document.getElementById('detectedPrice');
 
-function triggerFileSelect(mode) {
-    imageInput.value = '';
-    if (mode === 'camera') {
-        imageInput.setAttribute('capture', 'environment');
-    } else {
-        imageInput.removeAttribute('capture');
-    }
-    imageInput.click();
-}
+// 파일이 선택되었을 때 실행되는 함수
+function handleFileSelected(event) {
+    const file = event.target.files[0];
+    if (!file) return;
 
-imageInput.addEventListener('change', function(e) {
-    const files = e.target.files;
-    if (files && files.length > 0) {
-        handleImageProcess(files[0]);
-    }
-});
-
-async function handleImageProcess(file) {
     const reader = new FileReader();
-    
     reader.onload = async function(e) {
         const imageDataUrl = e.target.result;
         imagePreview.src = imageDataUrl;
@@ -43,7 +28,6 @@ async function handleImageProcess(file) {
         let extractedText = "";
 
         try {
-            // 타임아웃(5초)을 두어 OCR이 너무 오래 걸리면 강제로 넘어가게 처리 (무한 멈춤 방지)
             const ocrPromise = Tesseract.recognize(imageDataUrl, 'kor+eng', {
                 logger: m => {
                     if (m.status === 'recognizing text') {
@@ -59,18 +43,13 @@ async function handleImageProcess(file) {
 
             const result = await Promise.race([ocrPromise, timeoutPromise]);
             extractedText = result.data.text;
-            console.log("추출된 텍스트:", extractedText);
-
         } catch (error) {
-            console.log("OCR 건너뜀 또는 실패 (기본값 세팅):", error);
-            // 실패 시 코스트코 가격표 예시 기준으로 기본 세팅
+            console.log("OCR 건너뜀 또는 실패:", error);
             extractedText = "햇반 이천쌀밥 210G X 18 17,590원";
         }
 
-        // 파싱 수행
         parseSmartPriceTag(extractedText);
 
-        // UI 전환 (무조건 폼이 보이도록 보장)
         loadingSpinner.style.display = 'none';
         dualViewContainer.style.display = 'flex';
     };
@@ -118,6 +97,7 @@ function parseSmartPriceTag(text) {
 }
 
 function resetUpload() {
+    const imageInput = document.getElementById('imageInput');
     imageInput.value = '';
     imagePreview.src = '';
     uploadBox.style.display = 'block';

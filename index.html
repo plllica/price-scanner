@@ -16,10 +16,10 @@
         </header>
 
         <main class="app-main">
-            <!-- 초기 업로드 영역 -->
+            <!-- 초기 업로드 영역 (label을 이용해 모바일 차단 우회) -->
             <div class="upload-section" id="uploadBox">
-                <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display: none;">
-                <input type="file" id="galleryInput" accept="image/*" style="display: none;">
+                <!-- 실제 파일 인풋 -->
+                <input type="file" id="imageInput" accept="image/*" style="display: none;" onchange="handleFileSelected(event)">
 
                 <div class="upload-placeholder" id="uploadPlaceholder">
                     <div class="camera-icon-box">📸</div>
@@ -27,8 +27,8 @@
                     <span class="sub-text">상품명, 가격, 용량이 잘 보이게 찍어주세요</span>
                     
                     <div class="upload-btn-group">
-                        <button class="sub-action-btn" onclick="document.getElementById('cameraInput').click()">식별 사진 촬영</button>
-                        <button class="sub-action-btn gallery" onclick="document.getElementById('galleryInput').click()">갤러리에서 선택</button>
+                        <!-- label을 누르면 브라우저가 즉시 파일창을 엽니다 -->
+                        <label for="imageInput" class="sub-action-btn">사진 촬영 / 갤러리 선택</label>
                     </div>
                 </div>
             </div>
@@ -39,15 +39,13 @@
                 <p id="loadingText">AI가 가격표를 정밀 분석 중입니다...</p>
             </div>
 
-            <!-- [NEW] 사진 + 수정 폼 듀얼 뷰 (스캔 완료 후 노출) -->
+            <!-- 사진 + 수정 폼 듀얼 뷰 -->
             <div class="dual-view-container" id="dualViewContainer" style="display: none;">
-                <!-- 썸네일 사진 확인 영역 (참고용) -->
                 <div class="mini-preview-card">
                     <img id="imagePreview" alt="가격표 사진">
                     <button class="re-upload-btn-small" onclick="resetUpload()">사진 다시 선택</button>
                 </div>
 
-                <!-- 1초 수정 & 확인 폼 -->
                 <div class="card recognition-card">
                     <h3>⚡ 스캔 결과 확인 및 수정</h3>
                     <p class="guide-text">사진과 비교해서 틀린 내용이 있다면 탭해서 바로 고치세요!</p>
