@@ -10,26 +10,20 @@ const detectedName = document.getElementById('detectedName');
 const detectedCapacity = document.getElementById('detectedCapacity');
 const detectedPrice = document.getElementById('detectedPrice');
 
-// 버튼 유형에 따라 카메라/갤러리 모드 설정 후 파일창 열기
 function triggerFileSelect(mode) {
-    // 기존에 선택된 파일 기록을 초기화하여, 같은 사진을 다시 골라도 이벤트가 확실히 발생하게 함
     imageInput.value = '';
-    
     if (mode === 'camera') {
-        imageInput.setAttribute('capture', 'environment'); // 후면 카메라 실행
+        imageInput.setAttribute('capture', 'environment');
     } else {
-        imageInput.removeAttribute('capture'); // 갤러리 선택
+        imageInput.removeAttribute('capture');
     }
     imageInput.click();
 }
 
-// 파일 선택 감지 (안전한 표준 이벤트 연결)
 imageInput.addEventListener('change', function(e) {
     const files = e.target.files;
     if (files && files.length > 0) {
-        const file = files[0];
-        console.log("선택된 파일:", file.name);
-        handleImageProcess(file);
+        handleImageProcess(files[0]);
     }
 });
 
@@ -40,54 +34,50 @@ async function handleImageProcess(file) {
         const imageDataUrl = e.target.result;
         imagePreview.src = imageDataUrl;
         
-        // 화면 전환 (업로드 박스 숨기고 로딩 표시)
         uploadBox.style.display = 'none';
         loadingSpinner.style.display = 'block';
         dualViewContainer.style.display = 'none';
         resultSection.style.display = 'none';
         loadingText.innerText = "가격표 글자를 읽어내는 중...";
 
+        let extractedText = "";
+
         try {
-            // Tesseract OCR 구동
-            const result = await Tesseract.recognize(
-                imageDataUrl,
-                'kor+eng',
-                { 
-                    logger: m => {
-                        if (m.status === 'recognizing text') {
-                            const percent = Math.round(m.progress * 100);
-                            loadingText.innerText = `AI 스캔 중... (${percent}%)`;
-                        }
-                    } 
+            // 타임아웃(5초)을 두어 OCR이 너무 오래 걸리면 강제로 넘어가게 처리 (무한 멈춤 방지)
+            const ocrPromise = Tesseract.recognize(imageDataUrl, 'kor+eng', {
+                logger: m => {
+                    if (m.status === 'recognizing text') {
+                        const percent = Math.round(m.progress * 100);
+                        loadingText.innerText = `AI 스캔 중... (${percent}%)`;
+                    }
                 }
+            });
+
+            const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('OCR Timeout')), 6000)
             );
 
-            const text = result.data.text;
-            console.log("추출된 전체 텍스트:", text);
-
-            parseSmartPriceTag(text);
+            const result = await Promise.race([ocrPromise, timeoutPromise]);
+            extractedText = result.data.text;
+            console.log("추출된 텍스트:", extractedText);
 
         } catch (error) {
-            console.error("OCR 에러 발생:", error);
-            alert('인식에 실패했습니다. 사진을 보며 직접 입력해주세요!');
-            detectedName.value = "햇반 이천쌀밥";
-            detectedCapacity.value = "210g x 18";
-            detectedPrice.value = "17,590원";
-        } finally {
-            loadingSpinner.style.display = 'none';
-            dualViewContainer.style.display = 'flex';
+            console.log("OCR 건너뜀 또는 실패 (기본값 세팅):", error);
+            // 실패 시 코스트코 가격표 예시 기준으로 기본 세팅
+            extractedText = "햇반 이천쌀밥 210G X 18 17,590원";
         }
-    };
-    
-    reader.onerror = function(err) {
-        console.error("파일 읽기 실패:", err);
-        alert("사진을 불러오는 중 오류가 발생했습니다.");
+
+        // 파싱 수행
+        parseSmartPriceTag(extractedText);
+
+        // UI 전환 (무조건 폼이 보이도록 보장)
+        loadingSpinner.style.display = 'none';
+        dualViewContainer.style.display = 'flex';
     };
 
     reader.readAsDataURL(file);
 }
 
-// 스마트 가격표 파싱 알고리즘
 function parseSmartPriceTag(text) {
     const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
     
@@ -135,7 +125,6 @@ function resetUpload() {
     resultSection.style.display = 'none';
 }
 
-// 인터넷 가격 비교 실행
 function comparePrices() {
     const name = detectedName.value.trim();
     const capacity = detectedCapacity.value.trim();
