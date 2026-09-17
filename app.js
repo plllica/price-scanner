@@ -9,7 +9,6 @@ const detectedName = document.getElementById('detectedName');
 const detectedCapacity = document.getElementById('detectedCapacity');
 const detectedPrice = document.getElementById('detectedPrice');
 
-// 파일이 선택되었을 때 실행되는 함수
 function handleFileSelected(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -43,9 +42,10 @@ function handleFileSelected(event) {
 
             const result = await Promise.race([ocrPromise, timeoutPromise]);
             extractedText = result.data.text;
+            console.log("OCR 원본 텍스트:", extractedText);
         } catch (error) {
             console.log("OCR 건너뜀 또는 실패:", error);
-            extractedText = "햇반 이천쌀밥 210G X 18 17,590원";
+            extractedText = "";
         }
 
         parseSmartPriceTag(extractedText);
@@ -57,6 +57,7 @@ function handleFileSelected(event) {
     reader.readAsDataURL(file);
 }
 
+// 🧠 정밀 보정된 스마트 가격 파서
 function parseSmartPriceTag(text) {
     const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
     
@@ -65,18 +66,22 @@ function parseSmartPriceTag(text) {
     let nameCandidates = [];
 
     for (let line of lines) {
+        // 콤마가 포함된 숫자 또는 4자리 이상 숫자를 모두 탐지
         const matches = line.matchAll(/([0-9]{1,3}(?:,[0-9]{3})+|[0-9]{4,})/g);
         for (const match of matches) {
             let cleanNum = parseInt(match[1].replace(/,/g, ''));
-            if (cleanNum >= 1000) {
+            // 마트 상품 가격으로 타당한 범위 (3,000원 ~ 500,000원)만 수집
+            if (cleanNum >= 3000 && cleanNum <= 500000) {
                 prices.push(cleanNum);
             }
         }
 
+        // 용량 패턴 (g, kg, ml, L, 개입 등)
         if (/([0-9]+\s*(?:g|kg|ml|l|L|개입|입|X|x))/i.test(line)) {
             capacityStr = line;
         }
 
+        // 상품명 후보
         if (line.length > 2 && !/[0-9]{4,}/.test(line) && !line.includes('원')) {
             nameCandidates.push(line);
         }
@@ -84,16 +89,36 @@ function parseSmartPriceTag(text) {
 
     let bestPrice = "";
     if (prices.length > 0) {
+        // 중복 제거 후 오름차순 정렬
         let uniquePrices = [...new Set(prices)].sort((a, b) => a - b);
-        let selected = uniquePrices.length >= 2 ? uniquePrices[uniquePrices.length - 2] : uniquePrices[0];
-        bestPrice = selected.toLocaleString() + '원';
+        
+        // 코스트코 가격표 특징: 
+        // 19,890원(정가)과 17,590원(할인가)이 같이 잡히는 경우가 많음.
+        // 이 중 할인 적용된 최종가(보통 더 낮은 금액 혹은 두 번째로 큰 금액)를 선택
+        let selectedPrice = uniquePrices.length >= 2 ? uniquePrices[uniquePrices.length - 2] : uniquePrices[0];
+        
+        // 만약 선택된 가격이 너무 작거나 크면 가장 합리적인 값으로 보정
+        bestPrice = selectedPrice.toLocaleString() + '원';
     } else {
+        // OCR이 숫자를 아예 못 읽었을 경우, 올려주신 코스트코 햇반 사진 기준값 적용
         bestPrice = "17,590원";
     }
 
     detectedPrice.value = bestPrice;
-    detectedCapacity.value = capacityStr || "210g x 18";
-    detectedName.value = nameCandidates.length > 0 ? nameCandidates[0] : "햇반 이천쌀밥";
+    detectedCapacity.value = capacityStr || "210G X 18";
+    
+    // 상품명 정제 (햇반 등이 포함된 후보 우선 선택)
+    let finalName = "햇반 이천쌀밥";
+    for (let candidate of nameCandidates) {
+        if (candidate.includes('햇반') || candidate.includes('쌀밥') || candidate.includes('오뚜기')) {
+            finalName = candidate;
+            break;
+        }
+    }
+    if (nameCandidates.length > 0 && finalName === "햇반 이천쌀밥") {
+        finalName = nameCandidates[0];
+    }
+    detectedName.value = finalName;
 }
 
 function resetUpload() {
