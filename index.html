@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>이거 진짜 최저가 맞아? - 마트 가격표 비교</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- 상단 헤더 -->
+        <header class="app-header">
+            <div class="header-badge">🛒 마트 득템 방지 위원회</div>
+            <h1>가격표 찰칵, 최저가 비교</h1>
+            <p>마트 가격표를 찍으면 인터넷 최저가와 바로 비교해드려요!</p>
+        </header>
+
+        <!-- 메인 콘텐츠 -->
+        <main class="app-main">
+            <!-- 사진 업로드 섹션 -->
+            <div class="upload-section" id="uploadBox">
+                <input type="file" id="imageInput" accept="image/*" capture="environment" style="display: none;">
+                <div class="upload-placeholder" onclick="document.getElementById('imageInput').click()">
+                    <div class="camera-icon-box">📸</div>
+                    <p><strong>가격표 사진 찍기 / 업로드</strong></p>
+                    <span class="sub-text">상품명, 용량, 가격이 잘 보이게 찍어주세요</span>
+                </div>
+                <div class="preview-container" id="previewContainer" style="display: none;">
+                    <img id="imagePreview" src="" alt="가격표 미리보기">
+                    <button class="re-upload-btn" onclick="resetUpload()">🔄 다시 찍기</button>
+                </div>
+            </div>
+
+            <!-- OCR 인식 결과 수정/확인 영역 -->
+            <div class="card recognition-card" id="productInfoGroup" style="display: none;">
+                <h3>🔍 가격표 자동 스캔 결과</h3>
+                <div class="input-grid">
+                    <div class="input-row">
+                        <label>상품명</label>
+                        <input type="text" id="detectedName" placeholder="상품명">
+                    </div>
+                    <div class="input-row">
+                        <label>규격/용량</label>
+                        <input type="text" id="detectedCapacity" placeholder="용량 (예: 500ml)">
+                    </div>
+                    <div class="input-row">
+                        <label>매장 가격</label>
+                        <input type="text" id="detectedPrice" placeholder="마트 판매가">
+                    </div>
+                </div>
+                <button class="primary-btn" onclick="comparePrices()">인터넷 최저가 비교하기 🚀</button>
+            </div>
+
+            <!-- 로딩 상태 -->
+            <div class="loading-container" id="loadingSpinner" style="display: none;">
+                <div class="toss-spinner"></div>
+                <p>마트 가격표 분석 및 인터넷 최저가 긁어오는 중...</p>
+            </div>
+
+            <!-- 결과 출력 섹션 -->
+            <div class="result-section" id="resultSection" style="display: none;">
+                <!-- 비교 판정 배지 -->
+                <div class="verdict-banner" id="verdictBanner">
+                    <span id="verdictEmoji">🎉</span>
+                    <div>
+                        <h4 id="verdictTitle">인터넷이 더 저렴해요!</h4>
+                        <p id="verdictDesc">지금 매장가보다 3,500원 아낄 수 있어요.</p>
+                    </div>
+                </div>
+
+                <!-- 요약 카드 -->
+                <div class="card summary-card">
+                    <div class="summary-header">
+                        <span id="resultProductName">상품명</span>
+                        <span class="capacity-tag" id="resultCapacity">용량</span>
+                    </div>
+                    <div class="price-comparison-box">
+                        <div class="p-box store">
+                            <span class="label">🏪 마트 매장가</span>
+                            <span class="value" id="storePriceVal">0원</span>
+                        </div>
+                        <div class="vs-text">VS</div>
+                        <div class="p-box online-best">
+                            <span class="label">🌐 인터넷 최저가</span>
+                            <span class="value" id="lowestPriceVal">0원</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 온라인 쇼핑몰별 리스트 -->
+                <div class="card mall-card">
+                    <h3>🛒 주요 쇼핑몰 실시간 가격 & 링크</h3>
+                    <ul id="mallList">
+                        <!-- 동적 생성 -->
+                    </ul>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
