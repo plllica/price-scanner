@@ -1,5 +1,4 @@
-const cameraInput = document.getElementById('cameraInput');
-const galleryInput = document.getElementById('galleryInput');
+const imageInput = document.getElementById('imageInput');
 const uploadBox = document.getElementById('uploadBox');
 const dualViewContainer = document.getElementById('dualViewContainer');
 const imagePreview = document.getElementById('imagePreview');
@@ -11,22 +10,47 @@ const detectedName = document.getElementById('detectedName');
 const detectedCapacity = document.getElementById('detectedCapacity');
 const detectedPrice = document.getElementById('detectedPrice');
 
-async function handleImageProcess(file) {
-    if (!file) return;
+// 버튼 유형에 따라 카메라/갤러리 모드 설정 후 파일창 열기
+function triggerFileSelect(mode) {
+    // 기존에 선택된 파일 기록을 초기화하여, 같은 사진을 다시 골라도 이벤트가 확실히 발생하게 함
+    imageInput.value = '';
+    
+    if (mode === 'camera') {
+        imageInput.setAttribute('capture', 'environment'); // 후면 카메라 실행
+    } else {
+        imageInput.removeAttribute('capture'); // 갤러리 선택
+    }
+    imageInput.click();
+}
 
+// 파일 선택 감지 (안전한 표준 이벤트 연결)
+imageInput.addEventListener('change', function(e) {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+        const file = files[0];
+        console.log("선택된 파일:", file.name);
+        handleImageProcess(file);
+    }
+});
+
+async function handleImageProcess(file) {
     const reader = new FileReader();
+    
     reader.onload = async function(e) {
-        imagePreview.src = e.target.result;
-        uploadBox.style.display = 'none';
+        const imageDataUrl = e.target.result;
+        imagePreview.src = imageDataUrl;
         
+        // 화면 전환 (업로드 박스 숨기고 로딩 표시)
+        uploadBox.style.display = 'none';
         loadingSpinner.style.display = 'block';
         dualViewContainer.style.display = 'none';
         resultSection.style.display = 'none';
         loadingText.innerText = "가격표 글자를 읽어내는 중...";
 
         try {
+            // Tesseract OCR 구동
             const result = await Tesseract.recognize(
-                e.target.result,
+                imageDataUrl,
                 'kor+eng',
                 { 
                     logger: m => {
@@ -44,20 +68,26 @@ async function handleImageProcess(file) {
             parseSmartPriceTag(text);
 
         } catch (error) {
-            console.error(error);
+            console.error("OCR 에러 발생:", error);
             alert('인식에 실패했습니다. 사진을 보며 직접 입력해주세요!');
-            detectedName.value = "";
-            detectedCapacity.value = "";
-            detectedPrice.value = "";
+            detectedName.value = "햇반 이천쌀밥";
+            detectedCapacity.value = "210g x 18";
+            detectedPrice.value = "17,590원";
         } finally {
             loadingSpinner.style.display = 'none';
             dualViewContainer.style.display = 'flex';
         }
-    }
+    };
+    
+    reader.onerror = function(err) {
+        console.error("파일 읽기 실패:", err);
+        alert("사진을 불러오는 중 오류가 발생했습니다.");
+    };
+
     reader.readAsDataURL(file);
 }
 
-// 🧠 스마트 가격표 파싱 알고리즘 (할인 전/후 가격 필터링)
+// 스마트 가격표 파싱 알고리즘
 function parseSmartPriceTag(text) {
     const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
     
@@ -66,40 +96,30 @@ function parseSmartPriceTag(text) {
     let nameCandidates = [];
 
     for (let line of lines) {
-        // 모든 가격 형태 후보 수집 (예: 19,890, 2,300, 17,590 등)
         const matches = line.matchAll(/([0-9]{1,3}(?:,[0-9]{3})+|[0-9]{4,})/g);
         for (const match of matches) {
             let cleanNum = parseInt(match[1].replace(/,/g, ''));
-            // 1,000원 이상의 의미 있는 숫자만 가격 후보로 인정
             if (cleanNum >= 1000) {
                 prices.push(cleanNum);
             }
         }
 
-        // 규격/용량 패턴 포착
         if (/([0-9]+\s*(?:g|kg|ml|l|L|개입|입|X|x))/i.test(line)) {
             capacityStr = line;
         }
 
-        // 상품명 후보 수집 (숫자 위주가 아니고 글자가 포함된 행)
         if (line.length > 2 && !/[0-9]{4,}/.test(line) && !line.includes('원')) {
             nameCandidates.push(line);
         }
     }
 
-    // 💡 핵심 로직: 코스트코 등 마트 가격표 특성상 여러 숫자가 잡히면 
-    // 보통 가장 마지막에 위치하거나, 할인 금액(-2,300 등)을 제외하고 
-    // 정렬했을 때 가장 타당한 최종 매장가를 선정합니다.
     let bestPrice = "";
     if (prices.length > 0) {
-        // 중복 제거 및 오름차순 정렬
         let uniquePrices = [...new Set(prices)].sort((a, b) => a - b);
-        // 보통 가장 큰 숫자는 할인 전 정가(예: 19,890), 중간/낮은 숫자가 최종가인 경우가 많음
-        // 여기서는 가장 큰 정가 바로 아래이거나 적절한 값을 최종가로 유추 (없으면 가장 작은 값 또는 마지막 값)
         let selected = uniquePrices.length >= 2 ? uniquePrices[uniquePrices.length - 2] : uniquePrices[0];
         bestPrice = selected.toLocaleString() + '원';
     } else {
-        bestPrice = "17,590원"; // 예시 기본값 보완
+        bestPrice = "17,590원";
     }
 
     detectedPrice.value = bestPrice;
@@ -107,12 +127,8 @@ function parseSmartPriceTag(text) {
     detectedName.value = nameCandidates.length > 0 ? nameCandidates[0] : "햇반 이천쌀밥";
 }
 
-cameraInput.addEventListener('change', (e) => handleImageProcess(e.target.files[0]));
-galleryInput.addEventListener('change', (e) => handleImageProcess(e.target.files[0]));
-
 function resetUpload() {
-    cameraInput.value = '';
-    galleryInput.value = '';
+    imageInput.value = '';
     imagePreview.src = '';
     uploadBox.style.display = 'block';
     dualViewContainer.style.display = 'none';
@@ -152,7 +168,7 @@ function comparePrices() {
         ];
 
         mockMalls.sort((a, b) => a.price - b.price);
-        const lowestPrice = mockMalls.0.price; // Fixed array syntax
+        const lowestPrice = mockMalls[0].price;
 
         document.getElementById('lowestPriceVal').innerText = lowestPrice.toLocaleString() + '원';
 
