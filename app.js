@@ -1,5 +1,6 @@
-const imageInput = document.getElementById('imageInput');
-const uploadPlaceholder = document.querySelector('.upload-placeholder');
+const cameraInput = document.getElementById('cameraInput');
+const galleryInput = document.getElementById('galleryInput');
+const uploadPlaceholder = document.getElementById('uploadPlaceholder');
 const previewContainer = document.getElementById('previewContainer');
 const imagePreview = document.getElementById('imagePreview');
 const productInfoGroup = document.getElementById('productInfoGroup');
@@ -11,9 +12,8 @@ const detectedName = document.getElementById('detectedName');
 const detectedCapacity = document.getElementById('detectedCapacity');
 const detectedPrice = document.getElementById('detectedPrice');
 
-// 1. 사진 업로드 시 시뮬레이션 (가격표 자동 스캔)
-imageInput.addEventListener('change', function(event) {
-    const file = event.target.files[0];
+// 공통 파일 처리 함수
+function handleImageProcess(file) {
     if (file) {
         const reader = new FileReader();
         reader.onload = function(e) {
@@ -38,11 +38,22 @@ imageInput.addEventListener('change', function(event) {
         }
         reader.readAsDataURL(file);
     }
+}
+
+// 1. 카메라로 촬영한 경우
+cameraInput.addEventListener('change', function(event) {
+    handleImageProcess(event.target.files[0]);
 });
 
-// 사진 다시 찍기
+// 2. 갤러리에서 업로드한 경우
+galleryInput.addEventListener('change', function(event) {
+    handleImageProcess(event.target.files[0]);
+});
+
+// 사진 다시 선택/찍기 초기화
 function resetUpload() {
-    imageInput.value = '';
+    cameraInput.value = '';
+    galleryInput.value = '';
     imagePreview.src = '';
     previewContainer.style.display = 'none';
     uploadPlaceholder.style.display = 'block';
@@ -50,7 +61,7 @@ function resetUpload() {
     resultSection.style.display = 'none';
 }
 
-// 2. 인터넷 가격 비교 실행
+// 3. 인터넷 가격 비교 실행
 function comparePrices() {
     const name = detectedName.value.trim();
     const capacity = detectedCapacity.value.trim();

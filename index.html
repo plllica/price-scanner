@@ -12,22 +12,33 @@
         <header class="app-header">
             <div class="header-badge">🛒 마트 득템 방지 위원회</div>
             <h1>가격표 찰칵, 최저가 비교</h1>
-            <p>마트 가격표를 찍으면 인터넷 최저가와 바로 비교해드려요!</p>
+            <p>마트 가격표를 찍거나 골라서 인터넷 최저가와 비교해보세요!</p>
         </header>
 
         <!-- 메인 콘텐츠 -->
         <main class="app-main">
-            <!-- 사진 업로드 섹션 -->
+            <!-- 사진 업로드 / 촬영 섹션 -->
             <div class="upload-section" id="uploadBox">
-                <input type="file" id="imageInput" accept="image/*" capture="environment" style="display: none;">
-                <div class="upload-placeholder" onclick="document.getElementById('imageInput').click()">
+                <!-- 파일 입력 (카메라 전용) -->
+                <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display: none;">
+                <!-- 파일 입력 (갤러리/파일 업로드 전용) -->
+                <input type="file" id="galleryInput" accept="image/*" style="display: none;">
+
+                <div class="upload-placeholder" id="uploadPlaceholder">
                     <div class="camera-icon-box">📸</div>
-                    <p><strong>가격표 사진 찍기 / 업로드</strong></p>
-                    <span class="sub-text">상품명, 용량, 가격이 잘 보이게 찍어주세요</span>
+                    <p><strong>가격표 사진을 등록해주세요</strong></p>
+                    <span class="sub-text">상품명, 가격, 용량이 잘 보이게 찍거나 올려주세요</span>
+                    
+                    <!-- 선택 버튼 그룹 -->
+                    <div class="upload-btn-group">
+                        <button class="sub-action-btn" onclick="document.getElementById('cameraInput').click()">식별 사진 촬영</button>
+                        <button class="sub-action-btn gallery" onclick="document.getElementById('galleryInput').click()">갤러리에서 선택</button>
+                    </div>
                 </div>
+
                 <div class="preview-container" id="previewContainer" style="display: none;">
-                    <img id="imagePreview" src="" alt="가격표 미리보기">
-                    <button class="re-upload-btn" onclick="resetUpload()">🔄 다시 찍기</button>
+                    <img id="imagePreview" alt="가격표 미리보기">
+                    <button class="re-upload-btn" onclick="resetUpload()">🔄 다시 선택하기</button>
                 </div>
             </div>
 
@@ -59,16 +70,14 @@
 
             <!-- 결과 출력 섹션 -->
             <div class="result-section" id="resultSection" style="display: none;">
-                <!-- 비교 판정 배지 -->
                 <div class="verdict-banner" id="verdictBanner">
                     <span id="verdictEmoji">🎉</span>
                     <div>
                         <h4 id="verdictTitle">인터넷이 더 저렴해요!</h4>
-                        <p id="verdictDesc">지금 매장가보다 3,500원 아낄 수 있어요.</p>
+                        <p id="verdictDesc">지금 매장가보다 더 아낄 수 있어요.</p>
                     </div>
                 </div>
 
-                <!-- 요약 카드 -->
                 <div class="card summary-card">
                     <div class="summary-header">
                         <span id="resultProductName">상품명</span>
@@ -87,12 +96,9 @@
                     </div>
                 </div>
 
-                <!-- 온라인 쇼핑몰별 리스트 -->
                 <div class="card mall-card">
                     <h3>🛒 주요 쇼핑몰 실시간 가격 & 링크</h3>
-                    <ul id="mallList">
-                        <!-- 동적 생성 -->
-                    </ul>
+                    <ul id="mallList"></ul>
                 </div>
             </div>
         </main>
