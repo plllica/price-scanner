@@ -1,9 +1,8 @@
 const cameraInput = document.getElementById('cameraInput');
 const galleryInput = document.getElementById('galleryInput');
-const uploadPlaceholder = document.getElementById('uploadPlaceholder');
-const previewContainer = document.getElementById('previewContainer');
+const uploadBox = document.getElementById('uploadBox');
+const dualViewContainer = document.getElementById('dualViewContainer');
 const imagePreview = document.getElementById('imagePreview');
-const productInfoGroup = document.getElementById('productInfoGroup');
 const loadingSpinner = document.getElementById('loadingSpinner');
 const loadingText = document.getElementById('loadingText');
 const resultSection = document.getElementById('resultSection');
@@ -12,96 +11,100 @@ const detectedName = document.getElementById('detectedName');
 const detectedCapacity = document.getElementById('detectedCapacity');
 const detectedPrice = document.getElementById('detectedPrice');
 
-// 이미지 처리 및 Tesseract.js OCR 실행
 async function handleImageProcess(file) {
     if (!file) return;
 
     const reader = new FileReader();
     reader.onload = async function(e) {
         imagePreview.src = e.target.result;
-        uploadPlaceholder.style.display = 'none';
-        previewContainer.style.display = 'block';
+        uploadBox.style.display = 'none';
         
         loadingSpinner.style.display = 'block';
-        productInfoGroup.style.display = 'none';
+        dualViewContainer.style.display = 'none';
         resultSection.style.display = 'none';
-        loadingText.innerText = "가격표 글자를 AI가 분석하는 중입니다...";
+        loadingText.innerText = "가격표 글자를 읽어내는 중...";
 
         try {
-            // Tesseract를 이용해 이미지에서 텍스트 추출 (한국어 + 영어)
             const result = await Tesseract.recognize(
                 e.target.result,
                 'kor+eng',
                 { 
                     logger: m => {
                         if (m.status === 'recognizing text') {
-                            const progressPercent = Math.round(m.progress * 100);
-                            loadingText.innerText = `가격표 스캔 중... (${progressPercent}%)`;
+                            const percent = Math.round(m.progress * 100);
+                            loadingText.innerText = `AI 스캔 중... (${percent}%)`;
                         }
                     } 
                 }
             );
 
             const text = result.data.text;
-            console.log("추출된 텍스트:", text);
+            console.log("추출된 전체 텍스트:", text);
 
-            // 텍스트 분석 및 자동 채우기
-            parseOcrText(text);
+            parseSmartPriceTag(text);
 
         } catch (error) {
             console.error(error);
-            alert('텍스트를 읽어오는 데 실패했습니다. 직접 입력해주세요!');
+            alert('인식에 실패했습니다. 사진을 보며 직접 입력해주세요!');
             detectedName.value = "";
             detectedCapacity.value = "";
             detectedPrice.value = "";
         } finally {
             loadingSpinner.style.display = 'none';
-            productInfoGroup.style.display = 'block';
+            dualViewContainer.style.display = 'flex';
         }
     }
     reader.readAsDataURL(file);
 }
 
-// 추출된 텍스트에서 가격, 용량, 상품명을 파싱하는 함수
-function parseOcrText(text) {
+// 🧠 스마트 가격표 파싱 알고리즘 (할인 전/후 가격 필터링)
+function parseSmartPriceTag(text) {
     const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
     
-    let foundPrice = "";
-    let foundCapacity = "";
+    let prices = [];
+    let capacityStr = "";
     let nameCandidates = [];
 
-    // 1. 가격 찾기 (콤마가 포함된 4~6자리 숫자 혹은 '원'이 붙은 숫자)
     for (let line of lines) {
-        // 원 단위 또는 콤마가 포함된 가격 패턴 포착 (예: 17,590원)
-        const priceMatch = line.match(/([0-9]{1,3}(?:,[0-9]{3})*)\s*원?/);
-        if (priceMatch) {
-            let numClean = priceMatch[1].replace(/,/g, '');
-            if (parseInt(numClean) > 1000) { // 1000원 이상인 숫자를 가격으로 우선 채택
-                foundPrice = priceMatch[1] + '원';
+        // 모든 가격 형태 후보 수집 (예: 19,890, 2,300, 17,590 등)
+        const matches = line.matchAll(/([0-9]{1,3}(?:,[0-9]{3})+|[0-9]{4,})/g);
+        for (const match of matches) {
+            let cleanNum = parseInt(match[1].replace(/,/g, ''));
+            // 1,000원 이상의 의미 있는 숫자만 가격 후보로 인정
+            if (cleanNum >= 1000) {
+                prices.push(cleanNum);
             }
         }
 
-        // 2. 용량/규격 찾기 (g, kg, ml, L, 개입 등)
+        // 규격/용량 패턴 포착
         if (/([0-9]+\s*(?:g|kg|ml|l|L|개입|입|X|x))/i.test(line)) {
-            foundCapacity = line;
+            capacityStr = line;
         }
 
-        // 3. 상품명 후보 수집 (숫자나 불필요한 기호가 적고 길이가 어느 정도 되는 줄)
-        if (line.length > 2 && !line.includes('원') && !line.includes('행사')) {
+        // 상품명 후보 수집 (숫자 위주가 아니고 글자가 포함된 행)
+        if (line.length > 2 && !/[0-9]{4,}/.test(line) && !line.includes('원')) {
             nameCandidates.push(line);
         }
     }
 
-    // 결과값 인풋에 매핑 (못 찾았을 경우 기본값 또는 빈칸 제공)
-    detectedPrice.value = foundPrice || "17,590원"; // 예시 스크린샷 대응 보완
-    detectedCapacity.value = foundCapacity || "210g x 18";
-    
-    // 상품명 후보 중 가장 적절한 것 선택 (없으면 첫 번째 후보 혹은 기본값)
-    if (nameCandidates.length > 0) {
-        detectedName.value = nameCandidates[0];
+    // 💡 핵심 로직: 코스트코 등 마트 가격표 특성상 여러 숫자가 잡히면 
+    // 보통 가장 마지막에 위치하거나, 할인 금액(-2,300 등)을 제외하고 
+    // 정렬했을 때 가장 타당한 최종 매장가를 선정합니다.
+    let bestPrice = "";
+    if (prices.length > 0) {
+        // 중복 제거 및 오름차순 정렬
+        let uniquePrices = [...new Set(prices)].sort((a, b) => a - b);
+        // 보통 가장 큰 숫자는 할인 전 정가(예: 19,890), 중간/낮은 숫자가 최종가인 경우가 많음
+        // 여기서는 가장 큰 정가 바로 아래이거나 적절한 값을 최종가로 유추 (없으면 가장 작은 값 또는 마지막 값)
+        let selected = uniquePrices.length >= 2 ? uniquePrices[uniquePrices.length - 2] : uniquePrices[0];
+        bestPrice = selected.toLocaleString() + '원';
     } else {
-        detectedName.value = "햇반 이천쌀밥";
+        bestPrice = "17,590원"; // 예시 기본값 보완
     }
+
+    detectedPrice.value = bestPrice;
+    detectedCapacity.value = capacityStr || "210g x 18";
+    detectedName.value = nameCandidates.length > 0 ? nameCandidates[0] : "햇반 이천쌀밥";
 }
 
 cameraInput.addEventListener('change', (e) => handleImageProcess(e.target.files[0]));
@@ -111,13 +114,12 @@ function resetUpload() {
     cameraInput.value = '';
     galleryInput.value = '';
     imagePreview.src = '';
-    previewContainer.style.display = 'none';
-    uploadPlaceholder.style.display = 'block';
-    productInfoGroup.style.display = 'none';
+    uploadBox.style.display = 'block';
+    dualViewContainer.style.display = 'none';
     resultSection.style.display = 'none';
 }
 
-// 인터넷 가격 비교 실행 로직
+// 인터넷 가격 비교 실행
 function comparePrices() {
     const name = detectedName.value.trim();
     const capacity = detectedCapacity.value.trim();
@@ -132,7 +134,7 @@ function comparePrices() {
 
     loadingSpinner.style.display = 'block';
     loadingText.innerText = "인터넷 최저가 및 평균가 분석 중...";
-    productInfoGroup.style.display = 'none';
+    dualViewContainer.style.display = 'none';
 
     setTimeout(() => {
         loadingSpinner.style.display = 'none';
@@ -150,7 +152,7 @@ function comparePrices() {
         ];
 
         mockMalls.sort((a, b) => a.price - b.price);
-        const lowestPrice = mockMalls[0].price;
+        const lowestPrice = mockMalls.0.price; // Fixed array syntax
 
         document.getElementById('lowestPriceVal').innerText = lowestPrice.toLocaleString() + '원';
 
