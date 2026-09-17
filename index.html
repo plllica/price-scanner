@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>이거 진짜 최저가 맞아? - 마트 가격표 비교</title>
     <link rel="stylesheet" href="style.css">
+    <!-- Tesseract.js (브라우저용 OCR 라이브러리) 추가 -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 </head>
 <body>
     <div class="app-container">
@@ -12,24 +14,21 @@
         <header class="app-header">
             <div class="header-badge">🛒 마트 득템 방지 위원회</div>
             <h1>가격표 찰칵, 최저가 비교</h1>
-            <p>마트 가격표를 찍거나 골라서 인터넷 최저가와 비교해보세요!</p>
+            <p>마트 가격표를 찍거나 골라주시면 AI가 자동으로 스캔해드려요!</p>
         </header>
 
         <!-- 메인 콘텐츠 -->
         <main class="app-main">
             <!-- 사진 업로드 / 촬영 섹션 -->
             <div class="upload-section" id="uploadBox">
-                <!-- 파일 입력 (카메라 전용) -->
                 <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display: none;">
-                <!-- 파일 입력 (갤러리/파일 업로드 전용) -->
                 <input type="file" id="galleryInput" accept="image/*" style="display: none;">
 
                 <div class="upload-placeholder" id="uploadPlaceholder">
                     <div class="camera-icon-box">📸</div>
                     <p><strong>가격표 사진을 등록해주세요</strong></p>
-                    <span class="sub-text">상품명, 가격, 용량이 잘 보이게 찍거나 올려주세요</span>
+                    <span class="sub-text">상품명, 가격, 용량이 잘 보이게 찍어주세요</span>
                     
-                    <!-- 선택 버튼 그룹 -->
                     <div class="upload-btn-group">
                         <button class="sub-action-btn" onclick="document.getElementById('cameraInput').click()">식별 사진 촬영</button>
                         <button class="sub-action-btn gallery" onclick="document.getElementById('galleryInput').click()">갤러리에서 선택</button>
@@ -44,7 +43,7 @@
 
             <!-- OCR 인식 결과 수정/확인 영역 -->
             <div class="card recognition-card" id="productInfoGroup" style="display: none;">
-                <h3>🔍 가격표 자동 스캔 결과</h3>
+                <h3>🔍 AI 가격표 스캔 결과 <span style="font-size: 11px; color: #3182ce; font-weight: normal;">(수정 가능)</span></h3>
                 <div class="input-grid">
                     <div class="input-row">
                         <label>상품명</label>
@@ -52,7 +51,7 @@
                     </div>
                     <div class="input-row">
                         <label>규격/용량</label>
-                        <input type="text" id="detectedCapacity" placeholder="용량 (예: 500ml)">
+                        <input type="text" id="detectedCapacity" placeholder="용량 (예: 210g x 18)">
                     </div>
                     <div class="input-row">
                         <label>매장 가격</label>
@@ -65,7 +64,7 @@
             <!-- 로딩 상태 -->
             <div class="loading-container" id="loadingSpinner" style="display: none;">
                 <div class="toss-spinner"></div>
-                <p>마트 가격표 분석 및 인터넷 최저가 긁어오는 중...</p>
+                <p id="loadingText">가격표에서 글자를 읽어오는 중... (잠시만요)</p>
             </div>
 
             <!-- 결과 출력 섹션 -->
